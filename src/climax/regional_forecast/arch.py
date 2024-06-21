@@ -26,9 +26,12 @@ class RegionalClimaX(ClimaX):
         var_embed = self.get_var_emb(self.var_embed, variables)
         x = x + var_embed.unsqueeze(2)  # B, V, L, D
 
-        # get the patch ids corresponding to the region
         region_patch_ids = region_info['patch_ids']
         x = x[:, :, region_patch_ids, :]
+
+
+
+
 
         # variable aggregation
         x = self.aggregate_variables(x)  # B, L, D
@@ -50,6 +53,14 @@ class RegionalClimaX(ClimaX):
 
         return x
 
+
+
+
+
+
+
+
+
     def forward(self, x, y, lead_times, variables, out_variables, metric, lat, region_info):
         """Forward pass through the model.
 
@@ -57,30 +68,65 @@ class RegionalClimaX(ClimaX):
             x: `[B, Vi, H, W]` shape. Input weather/climate variables
             y: `[B, Vo, H, W]` shape. Target weather/climate variables
             lead_times: `[B]` shape. Forecasting lead times of each element of the batch.
-            region_info: Containing the region's information
+            variables: input vars, example = ["temperature", "pressure", "wind_speed", "humidity", "precipitation"] **not real id
+            out_variables: output vars, vars we a predicting: example = ["wind"]  **not real id
+            region_info: Containing the region's information {min_w: 56 , min_h: 23, max_w: 12, max_h: 48, min_h_pr:, min_w_pr:, max_h_pr:, max_w_pr:, patch_ids }
+            metric: MSE, adjusts the loss based on the latitude: [lat_weighted_mse], list of functions(only one function)
+            lat: comes from preprocessing file
 
         Returns:
             loss (list): Different metrics.
             preds (torch.Tensor): `[B, Vo, H, W]` shape. Predicted weather/climate variables.
         """
-        out_transformers = self.forward_encoder(x, lead_times, variables, region_info)  # B, L, D
+        
+        #turns the data into vectors.
+        out_transformers = self.forward_encoder(x, lead_times, variables, region_info)  # B, L, D'
+        #makes predictions based on the data
         preds = self.head(out_transformers)  # B, L, V*p*p
 
+        #asigns min_h
+        min_h_pr, max_h_pr = region_info['min_h_pr'], region_info['max_h_pr']
+        min_w_pr, max_w_pr = region_info['min_w_pr'], region_info['max_w_pr']
+
+        #asigns min_h... etc to equal region_info min_h... etc
         min_h, max_h = region_info['min_h'], region_info['max_h']
         min_w, max_w = region_info['min_w'], region_info['max_w']
+        
+
+        predspr = self.unpatchify(preds, h = max_h_pr - min_h_pr + 1, w = max_w_pr - min_w_pr + 1)
+
+        #formats the predictions to match the correct height and width
         preds = self.unpatchify(preds, h = max_h - min_h + 1, w = max_w - min_w + 1)
+ 
+        #formats the output variables
         out_var_ids = self.get_var_ids(tuple(out_variables), preds.device)
+        #takes out only the variables specified, in our case wind
+        predspr = predspr[:, out_var_ids]
         preds = preds[:, out_var_ids]
 
-        y = y[:, :, min_h:max_h+1, min_w:max_w+1]
-        lat = lat[min_h:max_h+1]
 
+      
+        # if theres nothing in metric, asigns loss to none
         if metric is None:
             loss = None
-        else:
-            loss = [m(preds, y, out_variables, lat) for m in metric]
+        # if there is 
 
+        #function m is the loss function(math part)
+        #for each function in the list of functions metric it does the math for the loss
+        else:
+            loss = [m(preds, y, out_variables, lat) + m(predspr, y, out_variables, lat) for m in metric]
+
+        #loss is a list of integers
         return loss, preds
+
+# Add min_h_pr to lines 87
+# Add predpr variable similar to the one on line 92
+# pass it through outvarids along with the global one
+# add it to loss
+
+
+
+
 
     def evaluate(self, x, y, lead_times, variables, out_variables, transform, metrics, lat, clim, log_postfix, region_info):
         _, preds = self.forward(x, y, lead_times, variables, out_variables, metric=None, lat=lat, region_info=region_info)

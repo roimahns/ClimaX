@@ -82,15 +82,23 @@ BOUNDARIES = {
         'lat_range': (-50, 10),
         'lon_range': (100, 180)
     },
+    'PuertoRicoRegion': {
+        'lat_range': (10, 25),
+        'lon_range': (285, 300)
+    },
+    'WesternHemisphere': {
+        'lat_range': (-90, 90),
+        'lon_range': (180, 360)  # 0 to 180°W in 0-360 degree notation
+    },
     'Global': { # 32, 64
         'lat_range': (-90, 90),
         'lon_range': (0, 360)
     }
 }
 
-def get_region_info(region, lat, lon, patch_size):
-    region = BOUNDARIES[region]
-    lat_range = region['lat_range']
+def calculate_region_info(region, lat, lon, patch_size):
+    region = BOUNDARIES[region] # sets region to equal coordinates of specific region called
+    lat_range = region['lat_range'] # sets
     lon_range = region['lon_range']
     lat = lat[::-1] # -90 to 90 from south (bottom) to north (top)
     h, w = len(lat), len(lon)
@@ -114,10 +122,32 @@ def get_region_info(region, lat, lon, patch_size):
                 max_h = max(max_h, i + p - 1)
                 min_w = min(min_w, j)
                 max_w = max(max_w, j + p - 1)
-    return {
+    
+    region_info = {
         'patch_ids': valid_patch_ids,
         'min_h': min_h,
         'max_h': max_h,
         'min_w': min_w,
-        'max_w': max_w
+        'max_w': max_w,
     }
+
+    return region_info
+
+def get_region_info(region, lat, lon, patch_size):
+    global_info = calculate_region_info('Global', lat, lon, patch_size)
+    puerto_rico_info = calculate_region_info('PuertoRicoRegion', lat, lon, patch_size)
+    
+    global_info['max_h_pr'] = puerto_rico_info['max_h']
+    global_info['min_h_pr'] = puerto_rico_info['min_h']
+    global_info['max_w_pr'] = puerto_rico_info['max_w']
+    global_info['min_w_pr'] = puerto_rico_info['min_w']
+
+    return global_info
+
+# Example usage
+lat = np.linspace(-90, 90, 180)
+lon = np.linspace(0, 360, 360)
+patch_size = 5
+
+region_info = get_region_info('Global', lat, lon, patch_size)
+print(region_info)
