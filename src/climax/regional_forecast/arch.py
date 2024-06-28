@@ -92,8 +92,9 @@ class RegionalClimaX(ClimaX):
         min_h, max_h = region_info['min_h'], region_info['max_h']
         min_w, max_w = region_info['min_w'], region_info['max_w']
         
-
-        predspr = self.unpatchify(preds, h = max_h_pr - min_h_pr + 1, w = max_w_pr - min_w_pr + 1)
+       # predspr = self.unpatchify(preds.clone(), h=h, w=w, min_h_pr=min_h_pr, max_h_pr=max_h_pr, min_w_pr=min_w_pr, max_w_pr=max_w_pr)
+        predspr = self.unpatchify(preds.clone(), h = max_h_pr - min_h_pr + 1, w = max_w_pr - min_w_pr + 1, min_h_pr=min_h_pr, max_h_pr=max_h_pr, min_w_pr=min_w_pr, max_w_pr=max_w_pr)
+        #predspr = self.unpatchify(preds.clone(), h = max_h_pr - min_h_pr + 1, w = max_w_pr - min_w_pr + 1)
 
         #formats the predictions to match the correct height and width
         preds = self.unpatchify(preds, h = max_h - min_h + 1, w = max_w - min_w + 1)
@@ -104,8 +105,20 @@ class RegionalClimaX(ClimaX):
         predspr = predspr[:, out_var_ids]
         preds = preds[:, out_var_ids]
 
+       # mask = torch.zeros_like(y, dtype=torch.float32, device=y.device)
+       # mask[:, :, min_h_pr:max_h_pr + 1, min_w_pr:max_w_pr + 1] = 1
+        
+       # mask = mask[:, :, min_h_pr:max_h_pr + 1, min_w_pr:max_w_pr + 1]
+       # lat_pr = lat[min_h_pr:max_h_pr+1]
+       # y_pr = y[:, :, min_h_pr:max_h_pr + 1, min_w_pr:max_w_pr + 1]
+        y_pr = y[:, :, min_h_pr:max_h_pr + 1, min_w_pr:max_w_pr + 1]
+        lat_pr = lat[min_h_pr:max_h_pr + 1]
 
-      
+                 # Generate mask for the subsection
+        mask = torch.zeros_like(y_pr, dtype=torch.float32, device=y.device)
+        mask[:] = 1  # Setting the mask to 1 for the subsection region
+
+        #print("Mask", mask, "lat_pr", lat_pr, "y_pr", y_pr)
         # if theres nothing in metric, asigns loss to none
         if metric is None:
             loss = None
@@ -114,7 +127,14 @@ class RegionalClimaX(ClimaX):
         #function m is the loss function(math part)
         #for each function in the list of functions metric it does the math for the loss
         else:
-            loss = [m(preds, y, out_variables, lat) + m(predspr, y, out_variables, lat) for m in metric]
+            loss = []
+            for m in metric:
+                global_loss = m(preds, y, out_variables, lat)
+                pr_loss = m(predspr, y_pr, out_variables, lat_pr, mask=mask)
+                #total_loss = {"loss": global_loss["loss"] + pr_loss["loss"]}
+                global_loss["loss"] += pr_loss["loss"]
+                loss.append(global_loss)
+            #loss = [m(preds, y, out_variables, lat) + m(predspr, y_pr, out_variables, lat_pr, mask=mask) for m in metric]
 
         #loss is a list of integers
         return loss, preds

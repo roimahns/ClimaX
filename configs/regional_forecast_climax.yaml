@@ -2,7 +2,7 @@ seed_everything: 42
 
 # ---------------------------- TRAINER -------------------------------------------
 trainer:
-  default_root_dir: ${oc.env:OUTPUT_DIR,/home/t-tungnguyen/ClimaX/exps/regional_forecast_climax}
+  default_root_dir: ${oc.env:OUTPUT_DIR,/net/projects/era5/exps/regional_v1}
 
   precision: 16
 

@@ -1,4 +1,3 @@
-# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
 from functools import lru_cache
@@ -166,21 +165,53 @@ class ClimaX(nn.Module):
         ids = self.get_var_ids(vars, var_emb.device)
         return var_emb[:, ids, :]
 
-    def unpatchify(self, x: torch.Tensor, h=None, w=None):
+    def unpatchify(self, x: torch.Tensor, h=None, w=None, min_h_pr=None, max_h_pr=None, min_w_pr=None, max_w_pr=None):
         """
         x: (B, L, V * patch_size**2)
         return imgs: (B, V, H, W)
         """
-        p = self.patch_size
+        p = int(round(self.patch_size))  # Ensure patch size is an integer
         c = len(self.default_vars)
-        h = self.img_size[0] // p if h is None else h // p
-        w = self.img_size[1] // p if w is None else w // p
-        assert h * w == x.shape[1]
 
-        x = x.reshape(shape=(x.shape[0], h, w, p, p, c))
-        x = torch.einsum("nhwpqc->nchpwq", x)
-        imgs = x.reshape(shape=(x.shape[0], c, h * p, w * p))
+        # Calculate the patch dimensions for the subsection
+        if h is not None and w is not None:
+            h_p = (h + p - 1) // p  # Correct ceiling division
+            w_p = (w + p - 1) // p
+        else:
+            h_p = (self.img_size[0] + p - 1) // p
+            w_p = (self.img_size[1] + p - 1) // p
+
+ #       print(f"h: {h}, w: {w}, h_p: {h_p}, w_p: {w_p}, x.shape[1]: {x.shape[1]}")
+
+        # Calculate the subsection dimensions in terms of patches
+        if min_h_pr is not None and max_h_pr is not None and min_w_pr is not None and max_w_pr is not None:
+            h_pr_patches = (max_h_pr - min_h_pr + 1 + p - 1) // p
+            w_pr_patches = (max_w_pr - min_w_pr + 1 + p - 1) // p
+#            print(f"h_pr_patches: {h_pr_patches}, w_pr_patches: {w_pr_patches}")
+
+            # Extract the relevant patches for the subsection
+            x = x[:, :h_pr_patches * w_pr_patches, :]
+
+            assert h_pr_patches * w_pr_patches == x.shape[1], f"Expected {h_pr_patches * w_pr_patches}, but got {x.shape[1]}"
+
+            x = x.reshape(shape=(x.shape[0], h_pr_patches, w_pr_patches, p, p, c))
+            x = torch.einsum("nhwpqc->nchpwq", x)
+            imgs = x.reshape(shape=(x.shape[0], c, h_pr_patches * p, w_pr_patches * p))
+        else:
+            assert h_p * w_p == x.shape[1], f"Expected {h_p * w_p}, but got {x.shape[1]}"
+            x = x.reshape(shape=(x.shape[0], h_p, w_p, p, p, c))
+            x = torch.einsum("nhwpqc->nchpwq", x)
+            imgs = x.reshape(shape=(x.shape[0], c, h_p * p, w_p * p))
+
         return imgs
+#        h = self.img_size[0] // p if h is None else h // p
+ #       w = self.img_size[1] // p if w is None else w // p
+#        assert h * w == x.shape[1]
+
+  #      x = x.reshape(shape=(x.shape[0], h, w, p, p, c))
+     #   x = torch.einsum("nhwpqc->nchpwq", x)
+   #     imgs = x.reshape(shape=(x.shape[0], c, h * p, w * p))
+    #    return imgs
 
     def aggregate_variables(self, x: torch.Tensor):
         """

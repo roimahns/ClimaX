@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation.
+#opyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
 import numpy as np
@@ -46,23 +46,24 @@ def lat_weighted_mse(pred, y, vars, lat, mask=None):
         lat: H
     """
 
-    error = (pred - y) ** 2  # [N, C, H, W]
+    error = (pred - y) ** 2  # [B, V, H, W]
 
-    # lattitude weights
+    # Latitude weights
     w_lat = np.cos(np.deg2rad(lat))
-    w_lat = w_lat / w_lat.mean()  # (H, )
-    w_lat = torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(dtype=error.dtype, device=error.device)  # (1, H, 1)
+    w_lat = w_lat / w_lat.mean()  # Normalize latitude weights
+    w_lat = torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(dtype=error.dtype, device=error.device)  # Shape: [1, H, 1]
 
     loss_dict = {}
     with torch.no_grad():
         for i, var in enumerate(vars):
             if mask is not None:
-                loss_dict[var] = (error[:, i] * w_lat * mask).sum() / mask.sum()
+                loss_dict[var] = (error[:, i] * w_lat * mask[:, i]).sum() / mask[:, i].sum()
             else:
                 loss_dict[var] = (error[:, i] * w_lat).mean()
 
     if mask is not None:
-        loss_dict["loss"] = ((error * w_lat.unsqueeze(1)).mean(dim=1) * mask).sum() / mask.sum()
+        # Apply mask to the overall loss calculation
+        loss_dict["loss"] = ((error * w_lat.unsqueeze(1)) * mask).sum() / mask.sum()
     else:
         loss_dict["loss"] = (error * w_lat.unsqueeze(1)).mean(dim=1).mean()
 
@@ -307,3 +308,4 @@ def lat_weighted_mean_bias(pred, y, transform, vars, lat, log_steps, log_days, c
     loss_dict["mean_bias"] = np.mean([loss_dict[k].cpu() for k in loss_dict.keys()])
 
     return loss_dict
+
