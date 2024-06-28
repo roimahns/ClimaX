@@ -2,7 +2,7 @@ seed_everything: 42
 
 # ---------------------------- TRAINER -------------------------------------------
 trainer:
-  default_root_dir: ${oc.env:OUTPUT_DIR,/net/projects/era5/exps/regional_v1}
+  default_root_dir: ${oc.env:OUTPUT_DIR,/exps/regional_v1}
 
   precision: 16
 
@@ -76,7 +76,8 @@ model:
   net:
     class_path: climax.regional_forecast.arch.RegionalClimaX
     init_args:
-      default_vars: [
+      default_vars:
+        [
           "land_sea_mask",
           "orography",
           "lattitude",
@@ -139,7 +140,8 @@ model:
 # ---------------------------- DATA -------------------------------------------
 data:
   root_dir: /datadrive/datasets/5.625deg_equally_np/
-  variables: [
+  variables:
+    [
       "land_sea_mask",
       "orography",
       "lattitude",
@@ -189,7 +191,14 @@ data:
       "specific_humidity_850",
       "specific_humidity_925",
     ]
-  out_variables: ["geopotential_500", "temperature_850", "2m_temperature", "10m_u_component_of_wind", "10m_v_component_of_wind"]
+  out_variables:
+    [
+      "geopotential_500",
+      "temperature_850",
+      "2m_temperature",
+      "10m_u_component_of_wind",
+      "10m_v_component_of_wind",
+    ]
   region: "NorthAmerica"
   predict_range: 72
   hrs_each_step: 1

@@ -1,3 +1,5 @@
+LocalClimaX - This is a fork of ClimaX, modified to amplify results in Puerto Rico for better hurricane prediction.
+
 <p align="center">
   <img src="https://user-images.githubusercontent.com/1785175/215624212-fc92ccb1-f14c-4cb6-982f-61f50b9f3c21.png" width="320px">
 </p>
@@ -29,7 +31,7 @@ Thanks to [@rems75](https://github.com/rems75) and [@kdatta](https://github.com/
 
 ## Contributing
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
+This project welcomes contributions and suggestions. Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
 the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
 
